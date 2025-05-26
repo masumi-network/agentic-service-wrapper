@@ -14,10 +14,10 @@ from typing import Dict, Any, Optional
 MASUMI_PAYMENT_BASE_URL = "http://localhost:3001/api/v1"
 MASUMI_PAYMENT_TOKEN = "myadminkeyisalsoverysafe"  # Your admin key
 
-# Agent 118 information from metadata (fallback)
-AGENT_ID = "118"
-FALLBACK_AGENT_API_BASE_URL = "https://crewai-example-yrmo8.ondigitalocean.app"
-FALLBACK_AGENT_PRICE_LOVELACE = 10000000  # 10 tADA
+    # Echo Agent 320 information (your registered agent)
+AGENT_ID = "320"
+FALLBACK_AGENT_API_BASE_URL = "http://localhost:8000"
+FALLBACK_AGENT_PRICE_LOVELACE = 10000  # 0.01 tADA
 AGENT_PRICE_CURRENCY = "ADA"
 
 
@@ -122,13 +122,15 @@ def test_agent_endpoint(base_url: str) -> bool:
 
 def start_agent_job(base_url: str, topic: str) -> Optional[str]:
     """
-    Start a job with Agent 118 - Research Summary Agent
+    Start a job with Echo Agent 320
     """
     url = f"{base_url.rstrip('/')}/start_job"
     
-    # Based on the agent description, it expects a research topic
+    # Based on the echo agent's input schema
     payload = {
-        "input_data": topic
+        "input_data": [
+            {"key": "text", "value": topic}
+        ]
     }
     
     print(f"🚀 Starting job with Agent 118...")
@@ -160,7 +162,7 @@ def make_payment(job_id: str, amount: int, seller_wallet: str) -> bool:
     """
     Make payment through Masumi Payment Service
     """
-    url = f"{MASUMI_PAYMENT_BASE_URL}/purchases"
+    url = f"{MASUMI_PAYMENT_BASE_URL}/purchase/"
     headers = {
         "Authorization": f"Bearer {MASUMI_PAYMENT_TOKEN}",
         "token": MASUMI_PAYMENT_TOKEN,  # Some endpoints might expect this format
@@ -269,13 +271,13 @@ def main():
     Main function to orchestrate the full workflow
     """
     if len(sys.argv) < 2:
-        print("Usage: python call_masumi_agent.py '<research_topic>'")
-        print("Example: python call_masumi_agent.py 'AI governance models and their impact on blockchain development'")
+        print("Usage: python call_masumi_agent.py '<message>'")
+        print("Example: python call_masumi_agent.py 'Hello Echo Agent 320! Testing Masumi Network integration!'")
         return
     
     research_topic = sys.argv[1]
     
-    print("🔬 Masumi Agent 118 - Research Summary Service")
+    print("🔊 Echo Agent 320 - Masumi Network Integration")
     print("=" * 50)
     
     # Step 0: Try to get current agent info from Registry

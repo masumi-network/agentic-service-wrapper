@@ -7,11 +7,16 @@ Based on Masumi documentation for agent registration
 import requests
 import json
 import sys
+import os
 from typing import Dict, Any
+from dotenv import load_dotenv
+
+# Load environment variables
+load_dotenv()
 
 # Configuration - Update these values
-MASUMI_PAYMENT_BASE_URL = "http://localhost:3001/api/v1"
-MASUMI_PAYMENT_TOKEN = "myadminkeyisalsoverysafe"  # Your admin key
+MASUMI_PAYMENT_BASE_URL = os.getenv("MASUMI_PAYMENT_BASE_URL", "http://localhost:3001/api/v1")
+MASUMI_PAYMENT_TOKEN = os.getenv("MASUMI_PAYMENT_TOKEN")
 
 # Echo Agent Configuration
 ECHO_AGENT_CONFIG = {
@@ -32,16 +37,16 @@ ECHO_AGENT_CONFIG = {
     "name": "Echo Agent",
     "description": "A simple echo agent that returns whatever message you send to it. Perfect for testing the Masumi Network integration.",
     "Author": {
-        "name": "Masumi Developer",
-        "contactEmail": "developer@example.com",
-        "contactOther": "github.com/masumi-developer",
-        "organization": "Masumi Test Lab"
+        "name": "Pavel Larionov",
+        "contactEmail": "pavel.larionov@nmkr.io",
+        "contactOther": "github.com/pa1ar",
+        "organization": "NMKR"
     },
-    "apiBaseUrl": "http://localhost:8000",  # Where our echo agent is running
+    "apiBaseUrl": os.getenv("ECHO_AGENT_BASE_URL", "http://localhost:8000"),  # Where our echo agent is running
     "Legal": {
-        "privacyPolicy": "https://example.com/privacy",
-        "terms": "https://example.com/terms",
-        "other": "https://example.com/legal"
+        "privacyPolicy": "https://nmkr.io/privacy",
+        "terms": "https://nmkr.io/terms",
+        "other": "https://nmkr.io/legal"
     },
     "sellingWalletVkey": "",  # Will be filled from payment service
     "Capability": {
@@ -53,7 +58,7 @@ ECHO_AGENT_CONFIG = {
         "Pricing": [
             {
                 "unit": "",
-                "amount": "5000000"  # 5 tADA in lovelace
+                "amount": os.getenv("ECHO_AGENT_PRICE", "100000")  # 0.1 tADA in lovelace
             }
         ]
     }
@@ -109,7 +114,7 @@ def test_echo_agent() -> bool:
 
 def register_agent(config: Dict[str, Any]) -> bool:
     """Register the agent with Masumi Registry"""
-    url = f"{MASUMI_PAYMENT_BASE_URL}/registry/wallet"
+    url = f"{MASUMI_PAYMENT_BASE_URL}/registry/"
     headers = {
         "Authorization": f"Bearer {MASUMI_PAYMENT_TOKEN}",
         "token": MASUMI_PAYMENT_TOKEN,

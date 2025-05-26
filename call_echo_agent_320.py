@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Script to call our Echo Agent through Masumi Network
-This demonstrates the full workflow: discovery, job start, payment, and result retrieval
+Script to call Echo Agent 320 through Masumi Network
+This demonstrates the full workflow for calling a registered agent
 """
 
 import requests
@@ -10,38 +10,37 @@ import json
 import sys
 import os
 from typing import Dict, Any, Optional
-from dotenv import load_dotenv
-
-# Load environment variables
-load_dotenv()
 
 # Configuration from your environment
-MASUMI_PAYMENT_BASE_URL = os.getenv("MASUMI_PAYMENT_BASE_URL", "http://localhost:3001/api/v1")
-MASUMI_PAYMENT_TOKEN = os.getenv("MASUMI_PAYMENT_TOKEN")
+MASUMI_PAYMENT_BASE_URL = "http://localhost:3001/api/v1"
+MASUMI_PAYMENT_TOKEN = "myadminkeyisalsoverysafe"  # Your admin key
 
-# Echo Agent information
-ECHO_AGENT_API_BASE_URL = os.getenv("ECHO_AGENT_BASE_URL", "http://localhost:8000")
-ECHO_AGENT_PRICE_LOVELACE = int(os.getenv("ECHO_AGENT_PRICE", "100000"))  # 0.1 tADA
+# Echo Agent 320 information from registry metadata
+AGENT_ID = "320"
+AGENT_ASSET_ID = "0c2912d4088fbc6a0c725dbe5233735821109bd741acfa9f139023028d13b5832422b9245710c05f26b7b51a0dd6b9f1ead6b0e48e3b98a420851de1"
+AGENT_API_BASE_URL = "http://localhost:8000"  # From onchainMetadata.api_base_url
+AGENT_PRICE_LOVELACE = 10000  # From onchainMetadata.agentPricing.fixedPricing.amount
 AGENT_PRICE_CURRENCY = "ADA"
+NETWORK = "Preprod"
 
-def get_echo_agent_info_from_registry() -> Optional[Dict[str, Any]]:
+def get_agent_info_from_registry() -> Optional[Dict[str, Any]]:
     """
-    Try to get our echo agent information from Registry Service
+    Try to get agent information from Masumi Registry Service
     """
-    # Try to find our echo agent in the registry
     registry_urls = [
-        "http://localhost:3000",  # Local registry
         "https://registry.masumi.network",  # Official registry
-        "https://api.masumi.network"  # API endpoint
+        "https://api.masumi.network",       # API endpoint
+        "http://localhost:3000"             # Local registry (if running)
     ]
     
     for base_url in registry_urls:
         try:
-            # Try to list all agents and find ours
+            # Try different possible endpoints for agent 320
             endpoints = [
-                "/agents",
-                "/registry/agents",
-                "/api/v1/agents"
+                f"/agents/{AGENT_ID}",
+                f"/api/v1/agents/{AGENT_ID}",
+                f"/registry/agents/{AGENT_ID}",
+                f"/payment-information/{AGENT_ID}"
             ]
             
             for endpoint in endpoints:
@@ -51,14 +50,8 @@ def get_echo_agent_info_from_registry() -> Optional[Dict[str, Any]]:
                 response = requests.get(url, timeout=10)
                 if response.status_code == 200:
                     data = response.json()
-                    # Look for our echo agent
-                    agents = data if isinstance(data, list) else data.get("data", [])
-                    for agent in agents:
-                        if isinstance(agent, dict) and agent.get("name") == "Echo Agent":
-                            print(f"✅ Found Echo Agent: {json.dumps(agent, indent=2)}")
-                            return agent
-                    
-                    print(f"🔍 Registry found but no Echo Agent in {len(agents)} agents")
+                    print(f"✅ Got registry data: {json.dumps(data, indent=2)}")
+                    return data
                 else:
                     print(f"❌ {response.status_code}: {response.text[:100]}")
                     
@@ -66,10 +59,10 @@ def get_echo_agent_info_from_registry() -> Optional[Dict[str, Any]]:
             print(f"❌ Registry check failed for {base_url}: {e}")
             continue
     
-    print("🤷 No registry service found or Echo Agent not registered, using direct connection")
+    print("🤷 No registry service found, using hardcoded metadata")
     return None
 
-def get_wallet_from_payment_service() -> Optional[str]:
+def get_seller_wallet_from_payment_service() -> Optional[str]:
     """
     Get the seller wallet address from our payment service configuration
     """
@@ -85,23 +78,23 @@ def get_wallet_from_payment_service() -> Optional[str]:
         
         data = response.json()
         if data.get("status") == "success":
-            payment_sources = data.get("data", {}).get("PaymentSources", [])
+            payment_sources = data.get("data", {}).get("paymentSources", [])
             for source in payment_sources:
-                if source.get("network") == "Preprod":
+                if source.get("network") == NETWORK:
                     selling_wallets = source.get("SellingWallets", [])
                     if selling_wallets:
                         wallet_addr = selling_wallets[0].get("walletAddress")
                         print(f"📍 Found seller wallet: {wallet_addr}")
                         return wallet_addr
         
-        print("❌ No Preprod seller wallet found in payment service")
+        print(f"❌ No {NETWORK} seller wallet found in payment service")
         return None
         
     except requests.exceptions.RequestException as e:
         print(f"❌ Error getting wallet from payment service: {e}")
         return None
 
-def test_echo_agent_endpoint(base_url: str) -> bool:
+def test_agent_endpoint(base_url: str) -> bool:
     """
     Test if the echo agent endpoint is reachable
     """
@@ -125,20 +118,19 @@ def test_echo_agent_endpoint(base_url: str) -> bool:
     print(f"❌ Echo agent not reachable at {base_url}")
     return False
 
-def start_echo_job(base_url: str, message: str) -> Optional[str]:
+def start_echo_job_direct(base_url: str, message: str) -> Optional[str]:
     """
-    Start a job with our Echo Agent
+    Start a job directly with the Echo Agent (bypassing payment)
     """
     url = f"{base_url.rstrip('/')}/start_job"
     
-    # Based on our echo agent's input schema
     payload = {
         "input_data": [
             {"key": "text", "value": message}
         ]
     }
     
-    print(f"🚀 Starting job with Echo Agent...")
+    print(f"🚀 Starting job DIRECTLY with Echo Agent...")
     print(f"📍 URL: {url}")
     print(f"📝 Message: {message}")
     
@@ -232,7 +224,7 @@ def wait_for_completion(base_url: str, job_id: str, max_wait_time: int = 60) -> 
     print(f"⏳ Waiting for job {job_id} to complete (max {max_wait_time}s)...")
     
     start_time = time.time()
-    check_interval = 5  # Check every 5 seconds for echo agent
+    check_interval = 5  # Check every 5 seconds
     
     while time.time() - start_time < max_wait_time:
         status_data = check_job_status(base_url, job_id)
@@ -259,82 +251,109 @@ def wait_for_completion(base_url: str, job_id: str, max_wait_time: int = 60) -> 
 
 def main():
     """
-    Main function to orchestrate the full workflow
+    Main function demonstrating both direct and payment-based access
     """
     if len(sys.argv) < 2:
-        print("Usage: python call_echo_agent.py '<message>'")
-        print("Example: python call_echo_agent.py 'Hello, Echo Agent! How are you today?'")
+        print("Usage: python call_echo_agent_320.py '<message>' [--direct]")
+        print("Example: python call_echo_agent_320.py 'Hello, Echo Agent 320!'")
+        print("         python call_echo_agent_320.py 'Hello!' --direct")
         return
     
     message = sys.argv[1]
+    direct_mode = "--direct" in sys.argv
     
-    print("🔊 Echo Agent Test - Masumi Network Integration")
-    print("=" * 50)
+    print("🔊 Echo Agent 320 - Masumi Network Integration")
+    print("=" * 60)
+    print(f"🆔 Agent ID: {AGENT_ID}")
+    print(f"🏷️  Asset ID: {AGENT_ASSET_ID}")
+    print(f"🌐 Network: {NETWORK}")
+    print(f"🎯 Agent URL: {AGENT_API_BASE_URL}")
+    print(f"💰 Price: {AGENT_PRICE_LOVELACE} lovelace ({AGENT_PRICE_LOVELACE/1000000} ADA)")
+    print("=" * 60)
     
     # Step 0: Try to get current agent info from Registry
-    registry_info = get_echo_agent_info_from_registry()
-    
-    # Extract agent details (use fallback if registry fails)
-    if registry_info:
-        agent_url = registry_info.get("apiBaseUrl", ECHO_AGENT_API_BASE_URL)
-        agent_price = registry_info.get("AgentPricing", {}).get("Pricing", [{}])[0].get("amount", ECHO_AGENT_PRICE_LOVELACE)
-        seller_wallet = registry_info.get("SmartContractWallet", {}).get("walletAddress")
-    else:
-        agent_url = ECHO_AGENT_API_BASE_URL
-        agent_price = ECHO_AGENT_PRICE_LOVELACE
-        seller_wallet = None
-    
-    # Get seller wallet from our payment service if not from registry
-    if not seller_wallet:
-        seller_wallet = get_wallet_from_payment_service()
-        if not seller_wallet:
-            print("❌ Could not determine seller wallet address")
-            return
-    
-    print(f"🎯 Agent URL: {agent_url}")
-    print(f"💰 Price: {agent_price} lovelace ({int(agent_price)/1000000} ADA)")
-    print(f"🏦 Seller wallet: {seller_wallet}")
+    print("\n📋 Step 1: Checking Registry Service...")
+    registry_info = get_agent_info_from_registry()
     
     # Step 0.5: Test if echo agent is reachable
-    if not test_echo_agent_endpoint(agent_url):
+    print("\n🩺 Step 2: Testing Agent Availability...")
+    if not test_agent_endpoint(AGENT_API_BASE_URL):
         print("❌ Echo agent service appears to be down or unreachable")
         print("💡 Please start the echo agent first:")
+        print("   cd agentic-service")
         print("   python echo_agent.py")
         return
     
-    # Step 1: Start the job
-    job_id = start_echo_job(agent_url, message)
-    if not job_id:
-        print("❌ Failed to start job")
-        return
-    
-    print(f"\n🆔 Job ID: {job_id}")
-    
-    # Step 2: Make payment
-    payment_success = make_payment(job_id, int(agent_price), seller_wallet)
-    if not payment_success:
-        print("❌ Failed to make payment")
-        print("💡 Common reasons:")
-        print("   - Insufficient funds in purchasing wallet")
-        print("   - Wallet needs to be funded with Test-ADA")
-        print("   - Network connectivity issues")
-        return
-    
-    # Step 3: Wait for completion
-    print("\n⏳ Monitoring job progress...")
-    final_result = wait_for_completion(agent_url, job_id)
-    
-    if final_result:
-        print("\n🎯 Final Result:")
-        print("=" * 50)
+    if direct_mode:
+        print("\n🔓 DIRECT MODE: Bypassing payment system...")
+        print("💡 This demonstrates that you CAN call the agent directly if you know the endpoint")
         
-        result = final_result.get("result")
-        if result:
-            print(f"🔊 Echo Response: {result}")
+        # Start job directly
+        job_id = start_echo_job_direct(AGENT_API_BASE_URL, message)
+        if not job_id:
+            print("❌ Failed to start job directly")
+            return
+        
+        print(f"\n🆔 Job ID: {job_id}")
+        
+        # Check result directly
+        final_result = wait_for_completion(AGENT_API_BASE_URL, job_id)
+        
+        if final_result:
+            print("\n🎯 Final Result (Direct Access):")
+            print("=" * 50)
+            result = final_result.get("result")
+            if result:
+                print(f"🔊 Echo Response: {result}")
+            else:
+                print(json.dumps(final_result, indent=2))
         else:
-            print(json.dumps(final_result, indent=2))
+            print("\n❌ No final result obtained")
+            
     else:
-        print("\n❌ No final result obtained")
+        print("\n💳 PAYMENT MODE: Using Masumi Payment System...")
+        
+        # Get seller wallet
+        print("\n💼 Step 3: Getting Seller Wallet...")
+        seller_wallet = get_seller_wallet_from_payment_service()
+        if not seller_wallet:
+            print("❌ Could not determine seller wallet address")
+            return
+        
+        # Start job
+        print("\n🚀 Step 4: Starting Job...")
+        job_id = start_echo_job_direct(AGENT_API_BASE_URL, message)
+        if not job_id:
+            print("❌ Failed to start job")
+            return
+        
+        print(f"\n🆔 Job ID: {job_id}")
+        
+        # Make payment
+        print("\n💳 Step 5: Making Payment...")
+        payment_success = make_payment(job_id, AGENT_PRICE_LOVELACE, seller_wallet)
+        if not payment_success:
+            print("❌ Failed to make payment")
+            print("💡 Common reasons:")
+            print("   - Insufficient funds in purchasing wallet")
+            print("   - Wallet needs to be funded with Test-ADA")
+            print("   - Network connectivity issues")
+            return
+        
+        # Wait for completion
+        print("\n⏳ Step 6: Monitoring Job Progress...")
+        final_result = wait_for_completion(AGENT_API_BASE_URL, job_id)
+        
+        if final_result:
+            print("\n🎯 Final Result (Paid Access):")
+            print("=" * 50)
+            result = final_result.get("result")
+            if result:
+                print(f"🔊 Echo Response: {result}")
+            else:
+                print(json.dumps(final_result, indent=2))
+        else:
+            print("\n❌ No final result obtained")
 
 if __name__ == "__main__":
     main() 
