@@ -10,10 +10,13 @@ import json
 import sys
 import os
 from typing import Dict, Any, Optional
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # Configuration from your environment
 MASUMI_PAYMENT_BASE_URL = "http://localhost:3001/api/v1"
-MASUMI_PAYMENT_TOKEN = "myadminkeyisalsoverysafe"  # Your admin key
+MASUMI_PAYMENT_TOKEN = os.getenv("MASUMI_PAYMENT_TOKEN")
 
 # Echo Agent 320 information from registry metadata
 AGENT_ID = "320"

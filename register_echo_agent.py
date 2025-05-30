@@ -2,6 +2,8 @@
 """
 Script to register the Echo Agent with Masumi Registry (Preprod)
 Based on Masumi documentation for agent registration
+
+DIDN'T WORK
 """
 
 import requests

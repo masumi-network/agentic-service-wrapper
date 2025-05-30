@@ -1,0 +1,17 @@
+# Requirements for Masumi Agent Clients
+# These are the dependencies needed for users to interact with your agents
+
+# Basic HTTP requests
+requests>=2.31.0
+
+# For advanced Cardano blockchain interactions
+pycardano>=0.9.0
+
+# For environment variable management
+python-dotenv>=1.0.0
+
+# Optional: For web3 wallet integrations
+# web3>=6.0.0
+
+# Optional: For browser-based wallet connections
+# pywebview>=4.0.0 
