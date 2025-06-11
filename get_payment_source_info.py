@@ -32,7 +32,7 @@ def get_payment_source_info():
         
         if response.status_code == 200:
             data = response.json()
-            print(f"📄 Response data:")
+            print("📄 Response data:")
             print(json.dumps(data, indent=2))
             
             if data.get("status") == "success":
@@ -52,10 +52,10 @@ def get_payment_source_info():
                             wallet_addr = wallet.get("walletAddress")
                             wallet_vkey = wallet.get("walletVkey")
                             
-                            print(f"\n✅ SELLER WALLET INFORMATION:")
+                            print("\n✅ SELLER WALLET INFORMATION:")
                             print(f"   Address: {wallet_addr}")
                             print(f"   VKey: {wallet_vkey}")
-                            print(f"\n📝 Add this to your .env file:")
+                            print("\n📝 Add this to your .env file:")
                             print(f"   SELLER_VKEY={wallet_vkey}")
                             
                             return {

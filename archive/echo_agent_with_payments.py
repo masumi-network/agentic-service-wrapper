@@ -247,6 +247,7 @@ async def start_job(
         # Create a payment request using Masumi SDK
         payment = Payment(
             agent_identifier=AGENT_IDENTIFIER,
+            amounts=amounts,
             config=config,
             identifier_from_purchaser=request.identifier_from_purchaser,
             input_data=request.input_data,

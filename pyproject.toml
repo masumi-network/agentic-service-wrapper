@@ -5,14 +5,17 @@ build-backend = "setuptools.build_meta"
 [project]
 name = "agentic-service"
 version = "0.1.0"
-description = "Simple Echo Agent for Masumi Network"
+description = "Simple Reverse Echo Agent for Masumi Network"
 readme = "README.md"
 requires-python = ">=3.12"
 dependencies = [
     "fastapi>=0.104.0",
     "uvicorn[standard]>=0.24.0",
     "pydantic>=2.0.0",
-    "requests>=2.31.0"
+    "requests>=2.31.0",
+    "masumi",
+    "python-dotenv",
+    "httpx"
 ]
 
 [project.optional-dependencies]
@@ -22,4 +25,4 @@ dev = [
 ]
 
 [tool.setuptools]
-py-modules = ["echo_agent", "test_echo_agent", "register_echo_agent", "call_echo_agent"]
+py-modules = ["main", "reverse_echo_service", "logging_config"]
