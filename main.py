@@ -1,13 +1,15 @@
 import os
 import uvicorn
 import uuid
+import time
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from masumi.config import Config
-from masumi.payment import Payment, Amount
+from masumi.payment import Payment
 from agentic_service import AgenticService
 from logging_config import setup_logging
+import cuid2
 
 #region congif
 # Configure logging
@@ -18,9 +20,9 @@ load_dotenv(override=True)
 
 # Retrieve API Keys and URLs
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-PAYMENT_SERVICE_URL = os.getenv("PAYMENT_SERVICE_URL")
-PAYMENT_API_KEY = os.getenv("PAYMENT_API_KEY")
-NETWORK = os.getenv("NETWORK")
+PAYMENT_SERVICE_URL = os.getenv("PAYMENT_SERVICE_URL", "")
+PAYMENT_API_KEY = os.getenv("PAYMENT_API_KEY", "")
+NETWORK = os.getenv("NETWORK", "preview")
 
 logger.info("Starting application with configuration:")
 logger.info(f"PAYMENT_SERVICE_URL: {PAYMENT_SERVICE_URL}")
@@ -39,6 +41,9 @@ app = FastAPI(
 jobs = {}
 payment_instances = {}
 
+# track server start time for uptime calculation
+server_start_time = time.time()
+
 # ─────────────────────────────────────────────────────────────────────────────
 #region Initialize Masumi Payment Config
 # ─────────────────────────────────────────────────────────────────────────────
@@ -50,17 +55,19 @@ config = Config(
 # ─────────────────────────────────────────────────────────────────────────────
 #region Pydantic Models
 # ─────────────────────────────────────────────────────────────────────────────
+class InputDataItem(BaseModel):
+    key: str
+    value: str
+
 class StartJobRequest(BaseModel):
-    identifier_from_purchaser: str
-    input_data: dict[str, str]
+    input_data: list[InputDataItem]
     
     class Config:
         json_schema_extra = {
             "example": {
-                "identifier_from_purchaser": "example_purchaser_123",
-                "input_data": {
-                    "input_string": "Hello World"
-                }
+                "input_data": [
+                    {"key": "input_string", "value": "Hello World"}
+                ]
             }
         }
 
@@ -70,7 +77,7 @@ class ProvideInputRequest(BaseModel):
 # ─────────────────────────────────────────────────────────────────────────────
 #region Reverse Echo Task Execution
 # ─────────────────────────────────────────────────────────────────────────────
-async def execute_reverse_echo_task(input_data: dict) -> str:
+async def execute_reverse_echo_task(input_data: dict) -> object:
     """ Execute a reverse echo task """
     logger.info(f"Starting reverse echo task with input: {input_data}")
     service = AgenticService(logger=logger)
@@ -88,19 +95,25 @@ async def start_job(data: StartJobRequest):
     print(f"Received data.input_data: {data.input_data}")
     try:
         job_id = str(uuid.uuid4())
-        agent_identifier = os.getenv("AGENT_IDENTIFIER")
+        agent_identifier = os.getenv("AGENT_IDENTIFIER", "")
+        
+        # generate identifier_from_purchaser internally using cuid2
+        identifier_from_purchaser = cuid2.Cuid().generate()
+        logger.info(f"Generated identifier_from_purchaser: {identifier_from_purchaser}")
+        
+        # convert input_data array to dict for internal processing
+        input_data_dict = {item.key: item.value for item in data.input_data}
         
         # Log the input text (truncate if too long)
-        input_text = data.input_data["input_string"]
+        input_text = input_data_dict.get("input_string", "")
         truncated_input = input_text[:100] + "..." if len(input_text) > 100 else input_text
         logger.info(f"Received job request with input: '{truncated_input}'")
         logger.info(f"Starting job {job_id} with agent {agent_identifier}")
 
         # Define payment amounts
-        payment_amount = os.getenv("PAYMENT_AMOUNT", "1000000")  # 1 ADA
+        payment_amount = int(os.getenv("PAYMENT_AMOUNT", "1000000"))  # 1 ADA
         payment_unit = os.getenv("PAYMENT_UNIT", "lovelace") # Default lovelace
 
-        amounts = [Amount(amount=payment_amount, unit=payment_unit)]
         logger.info(f"Using payment amount: {payment_amount} {payment_unit}")
         
         # Create a payment request using Masumi
@@ -108,8 +121,8 @@ async def start_job(data: StartJobRequest):
             agent_identifier=agent_identifier,
             #amounts=amounts,
             config=config,
-            identifier_from_purchaser=data.identifier_from_purchaser,
-            input_data=data.input_data,
+            identifier_from_purchaser=identifier_from_purchaser,
+            input_data=input_data_dict,
             network=NETWORK
         )
         
@@ -124,9 +137,9 @@ async def start_job(data: StartJobRequest):
             "status": "awaiting_payment",
             "payment_status": "pending",
             "payment_id": payment_id,
-            "input_data": data.input_data,
+            "input_data": input_data_dict,
             "result": None,
-            "identifier_from_purchaser": data.identifier_from_purchaser
+            "identifier_from_purchaser": identifier_from_purchaser
         }
 
         async def payment_callback(payment_id: str):
@@ -137,31 +150,22 @@ async def start_job(data: StartJobRequest):
         logger.info(f"Starting payment status monitoring for job {job_id}")
         await payment.start_status_monitoring(payment_callback)
 
-        # Return the response in the required format
+        # Return the response in the Masumi standard format
         return {
-            "status": "success",
             "job_id": job_id,
-            "blockchainIdentifier": payment_request["data"]["blockchainIdentifier"],
-            "submitResultTime": payment_request["data"]["submitResultTime"],
-            "unlockTime": payment_request["data"]["unlockTime"],
-            "externalDisputeUnlockTime": payment_request["data"]["externalDisputeUnlockTime"],
-            "agentIdentifier": agent_identifier,
-            "sellerVkey": os.getenv("SELLER_VKEY"),
-            "identifierFromPurchaser": data.identifier_from_purchaser,
-            "amounts": amounts,
-            "input_hash": payment.input_hash
+            "payment_id": payment_id
         }
     except KeyError as e:
         logger.error(f"Missing required field in request: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=400,
-            detail="Bad Request: If input_data or identifier_from_purchaser is missing, invalid, or does not adhere to the schema."
+            detail="Bad Request: input_data is missing, invalid, or does not adhere to the schema."
         )
     except Exception as e:
         logger.error(f"Error in start_job: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=400,
-            detail="Input_data or identifier_from_purchaser is missing, invalid, or does not adhere to the schema."
+            detail="input_data is missing, invalid, or does not adhere to the schema."
         )
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -179,7 +183,7 @@ async def handle_payment_status(job_id: str, payment_id: str) -> None:
 
         # Execute the AI task
         result = await execute_reverse_echo_task(input_data)
-        result_dict = result.json_dict
+        result_dict = result.json_dict  # type: ignore
         logger.info(f"Reverse echo task completed for job {job_id}")
         
         # Mark payment as completed on Masumi
@@ -249,10 +253,14 @@ async def get_status(job_id: str):
 @app.get("/availability")
 async def check_availability():
     """ Checks if the server is operational """
-
-    return {"status": "available", "type": "masumi-agent", "message": "Server operational."}
-    # Commented out for simplicity sake but its recommended to include the agentIdentifier
-    #return {"status": "available","agentIdentifier": os.getenv("AGENT_IDENTIFIER"), "message": "The server is running smoothly."}
+    current_time = time.time()
+    uptime_seconds = int(current_time - server_start_time)
+    
+    return {
+        "status": "available", 
+        "uptime": uptime_seconds,
+        "message": "Server operational."
+    }
 
 # ─────────────────────────────────────────────────────────────────────────────
 #region 5) Retrieve Input Schema (MIP-003: /input_schema)

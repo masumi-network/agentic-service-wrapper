@@ -15,7 +15,10 @@ dependencies = [
     "requests>=2.31.0",
     "masumi",
     "python-dotenv",
-    "httpx"
+    "httpx",
+    "cuid2>=2.0.1",
+    "pytest>=8.3.5",
+    "pytest-asyncio>=1.0.0",
 ]
 
 [project.optional-dependencies]
@@ -26,3 +29,11 @@ dev = [
 
 [tool.setuptools]
 py-modules = ["main", "reverse_echo_service", "logging_config"]
+
+[tool.pyright]
+include = ["*.py", "**/*.py"]
+exclude = ["**/__pycache__"]
+reportMissingImports = false
+reportUnknownMemberType = false
+reportUnknownVariableType = false
+pythonVersion = "3.12"

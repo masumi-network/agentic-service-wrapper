@@ -4,4 +4,7 @@ pydantic>=2.0.0
 python-dotenv
 masumi
 httpx
-requests 
+requests
+cuid2
+pytest>=7.0.0
+pytest-asyncio>=0.21.0 
