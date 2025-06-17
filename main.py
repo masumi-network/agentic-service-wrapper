@@ -27,6 +27,41 @@ NETWORK = os.getenv("NETWORK", "preview")
 logger.info("Starting application with configuration:")
 logger.info(f"PAYMENT_SERVICE_URL: {PAYMENT_SERVICE_URL}")
 
+# validate critical environment variables at startup
+def validate_environment():
+    """Validate that all required environment variables are set"""
+    errors = []
+    
+    agent_id = os.getenv("AGENT_IDENTIFIER", "").strip()
+    if not agent_id:
+        errors.append("AGENT_IDENTIFIER is not set")
+    elif agent_id == "REPLACE":
+        errors.append("AGENT_IDENTIFIER is set to placeholder 'REPLACE' - please set a real agent identifier")
+    
+    if not PAYMENT_SERVICE_URL:
+        errors.append("PAYMENT_SERVICE_URL is not set")
+    
+    if not PAYMENT_API_KEY:
+        errors.append("PAYMENT_API_KEY is not set")
+    
+    if not NETWORK:
+        errors.append("NETWORK is not set")
+    
+    if errors:
+        logger.error("Critical environment variable validation failed:")
+        for error in errors:
+            logger.error(f"  - {error}")
+        logger.error("Please fix these configuration issues before starting the server")
+        return False
+    
+    logger.info("Environment validation passed")
+    return True
+
+# run validation but don't fail startup (for debugging)
+validation_passed = validate_environment()
+if not validation_passed:
+    logger.warning("Starting server despite configuration errors - some endpoints may not work properly")
+
 # Initialize FastAPI
 app = FastAPI(
     title="API following the Masumi API Standard",
@@ -95,7 +130,29 @@ async def start_job(data: StartJobRequest):
     print(f"Received data.input_data: {data.input_data}")
     try:
         job_id = str(uuid.uuid4())
-        agent_identifier = os.getenv("AGENT_IDENTIFIER", "")
+        
+        # validate required environment variables
+        agent_identifier = os.getenv("AGENT_IDENTIFIER", "").strip()
+        if not agent_identifier or agent_identifier == "REPLACE":
+            logger.error("AGENT_IDENTIFIER environment variable is missing or set to placeholder 'REPLACE'")
+            raise HTTPException(
+                status_code=500,
+                detail="Server configuration error: AGENT_IDENTIFIER not properly configured. Please contact administrator."
+            )
+        
+        if not PAYMENT_SERVICE_URL:
+            logger.error("PAYMENT_SERVICE_URL environment variable is missing")
+            raise HTTPException(
+                status_code=500,
+                detail="Server configuration error: PAYMENT_SERVICE_URL not configured. Please contact administrator."
+            )
+            
+        if not PAYMENT_API_KEY:
+            logger.error("PAYMENT_API_KEY environment variable is missing")
+            raise HTTPException(
+                status_code=500,
+                detail="Server configuration error: PAYMENT_API_KEY not configured. Please contact administrator."
+            )
         
         # generate identifier_from_purchaser internally using cuid2
         identifier_from_purchaser = cuid2.Cuid().generate()
@@ -103,6 +160,14 @@ async def start_job(data: StartJobRequest):
         
         # convert input_data array to dict for internal processing
         input_data_dict = {item.key: item.value for item in data.input_data}
+        
+        # validate required input
+        if "input_string" not in input_data_dict:
+            logger.error("Required field 'input_string' missing from input_data")
+            raise HTTPException(
+                status_code=400,
+                detail="Bad Request: 'input_string' is required in input_data array"
+            )
         
         # Log the input text (truncate if too long)
         input_text = input_data_dict.get("input_string", "")
@@ -155,17 +220,37 @@ async def start_job(data: StartJobRequest):
             "job_id": job_id,
             "payment_id": payment_id
         }
+    except HTTPException:
+        # re-raise HTTP exceptions (our custom errors)
+        raise
+    except ValueError as e:
+        logger.error(f"Value error in start_job: {str(e)}", exc_info=True)
+        if "PAYMENT_AMOUNT" in str(e):
+            raise HTTPException(
+                status_code=500,
+                detail="Server configuration error: Invalid PAYMENT_AMOUNT value. Please contact administrator."
+            )
+        raise HTTPException(
+            status_code=400,
+            detail=f"Invalid input data: {str(e)}"
+        )
     except KeyError as e:
         logger.error(f"Missing required field in request: {str(e)}", exc_info=True)
         raise HTTPException(
             status_code=400,
-            detail="Bad Request: input_data is missing, invalid, or does not adhere to the schema."
+            detail=f"Missing required field: {str(e)}"
         )
     except Exception as e:
-        logger.error(f"Error in start_job: {str(e)}", exc_info=True)
+        logger.error(f"Unexpected error in start_job: {str(e)}", exc_info=True)
+        # check if it's a masumi payment service error
+        if "Network error" in str(e) or "payment" in str(e).lower():
+            raise HTTPException(
+                status_code=502,
+                detail="Payment service unavailable. Please try again later or contact administrator."
+            )
         raise HTTPException(
-            status_code=400,
-            detail="input_data is missing, invalid, or does not adhere to the schema."
+            status_code=500,
+            detail="Internal server error. Please contact administrator."
         )
 
 # ─────────────────────────────────────────────────────────────────────────────

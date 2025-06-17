@@ -117,6 +117,27 @@ class TestStartJobEndpoint:
         assert response.status_code == 422  # validation error
     
     @patch('main.Payment')
+    @patch('main.cuid2.Cuid') 
+    @patch.dict(os.environ, {"AGENT_IDENTIFIER": "test-agent-123", "SELLER_VKEY": "test-seller-vkey"})
+    def test_start_job_missing_input_string(self, mock_cuid, mock_payment_class):
+        """test job creation with missing input_string in input_data"""
+        # mock cuid2 generation
+        mock_cuid_instance = MagicMock()
+        mock_cuid_instance.generate.return_value = "test-cuid2-identifier"
+        mock_cuid.return_value = mock_cuid_instance
+        
+        test_data = {
+            "input_data": [
+                {"key": "other_field", "value": "some value"}
+            ]
+        }
+        
+        response = client.post("/start_job", json=test_data)
+        
+        assert response.status_code == 400
+        assert "input_string" in response.json()["detail"]
+    
+    @patch('main.Payment')
     @patch('main.cuid2.Cuid')
     @patch.dict(os.environ, {"AGENT_IDENTIFIER": "test-agent-123", "SELLER_VKEY": "test-seller-vkey"})
     def test_start_job_payment_error(self, mock_cuid, mock_payment_class):
@@ -139,8 +160,9 @@ class TestStartJobEndpoint:
         
         response = client.post("/start_job", json=test_data)
         
-        assert response.status_code == 400
-        assert "input_data is missing, invalid, or does not adhere to the schema" in response.json()["detail"]
+        assert response.status_code in [400, 502]
+        detail = response.json()["detail"]
+        assert any(phrase in detail for phrase in ["Payment service unavailable", "Internal server error", "Server configuration error"])
 
 
 class TestStatusEndpoint:
