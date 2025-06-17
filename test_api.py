@@ -137,6 +137,20 @@ class TestStartJobEndpoint:
         assert response.status_code == 400
         assert "input_string" in response.json()["detail"]
     
+    def test_url_validation_function(self):
+        """test the URL validation function directly"""
+        from main import validate_url
+        
+        # test valid URLs
+        assert validate_url("https://example.com", "TEST_URL") == ""
+        assert validate_url("http://localhost:3000", "TEST_URL") == ""
+        
+        # test invalid URLs
+        assert "must start with 'https://' or 'http://'" in validate_url("example.com", "TEST_URL")
+        assert "must start with 'https://' or 'http://'" in validate_url("ftp://example.com", "TEST_URL")
+        assert "TEST_URL is not set" in validate_url("", "TEST_URL")
+        assert "not a valid URL format" in validate_url("https://", "TEST_URL")
+    
     @patch('main.Payment')
     @patch('main.cuid2.Cuid')
     @patch.dict(os.environ, {"AGENT_IDENTIFIER": "test-agent-123", "SELLER_VKEY": "test-seller-vkey"})

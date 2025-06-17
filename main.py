@@ -2,6 +2,7 @@ import os
 import uvicorn
 import uuid
 import time
+from urllib.parse import urlparse
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
@@ -28,6 +29,25 @@ logger.info("Starting application with configuration:")
 logger.info(f"PAYMENT_SERVICE_URL: {PAYMENT_SERVICE_URL}")
 
 # validate critical environment variables at startup
+def validate_url(url: str, name: str) -> str:
+    """Validate that a URL is properly formatted"""
+    if not url:
+        return f"{name} is not set"
+    
+    # check if it starts with http:// or https://
+    if not url.startswith(('http://', 'https://')):
+        return f"{name} must start with 'https://' or 'http://' (got: '{url}')"
+    
+    # parse URL to check if it's valid
+    try:
+        parsed = urlparse(url)
+        if not parsed.netloc:
+            return f"{name} is not a valid URL format (got: '{url}')"
+    except Exception:
+        return f"{name} is not a valid URL format (got: '{url}')"
+    
+    return ""  # no error
+
 def validate_environment():
     """Validate that all required environment variables are set"""
     errors = []
@@ -38,8 +58,10 @@ def validate_environment():
     elif agent_id == "REPLACE":
         errors.append("AGENT_IDENTIFIER is set to placeholder 'REPLACE' - please set a real agent identifier")
     
-    if not PAYMENT_SERVICE_URL:
-        errors.append("PAYMENT_SERVICE_URL is not set")
+    # validate payment service URL format
+    url_error = validate_url(PAYMENT_SERVICE_URL, "PAYMENT_SERVICE_URL")
+    if url_error:
+        errors.append(url_error)
     
     if not PAYMENT_API_KEY:
         errors.append("PAYMENT_API_KEY is not set")
@@ -82,10 +104,7 @@ server_start_time = time.time()
 # ─────────────────────────────────────────────────────────────────────────────
 #region Initialize Masumi Payment Config
 # ─────────────────────────────────────────────────────────────────────────────
-config = Config(
-    payment_service_url=PAYMENT_SERVICE_URL,
-    payment_api_key=PAYMENT_API_KEY
-)
+# config will be created in start_job to allow proper validation
 
 # ─────────────────────────────────────────────────────────────────────────────
 #region Pydantic Models
@@ -140,11 +159,13 @@ async def start_job(data: StartJobRequest):
                 detail="Server configuration error: AGENT_IDENTIFIER not properly configured. Please contact administrator."
             )
         
-        if not PAYMENT_SERVICE_URL:
-            logger.error("PAYMENT_SERVICE_URL environment variable is missing")
+        # validate payment service URL format
+        url_error = validate_url(PAYMENT_SERVICE_URL, "PAYMENT_SERVICE_URL")
+        if url_error:
+            logger.error(f"PAYMENT_SERVICE_URL validation failed: {url_error}")
             raise HTTPException(
                 status_code=500,
-                detail="Server configuration error: PAYMENT_SERVICE_URL not configured. Please contact administrator."
+                detail=f"Server configuration error: {url_error}. Please contact administrator."
             )
             
         if not PAYMENT_API_KEY:
@@ -180,6 +201,12 @@ async def start_job(data: StartJobRequest):
         payment_unit = os.getenv("PAYMENT_UNIT", "lovelace") # Default lovelace
 
         logger.info(f"Using payment amount: {payment_amount} {payment_unit}")
+        
+        # create config after validation
+        config = Config(
+            payment_service_url=PAYMENT_SERVICE_URL,
+            payment_api_key=PAYMENT_API_KEY
+        )
         
         # Create a payment request using Masumi
         payment = Payment(
