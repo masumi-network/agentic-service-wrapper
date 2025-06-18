@@ -242,10 +242,18 @@ async def start_job(data: StartJobRequest):
         logger.info(f"Starting payment status monitoring for job {job_id}")
         await payment.start_status_monitoring(payment_callback)
 
-        # Return the response in the Masumi standard format
+        # Return the response in the format expected by the /purchase endpoint
         return {
-            "job_id": job_id,
-            "payment_id": payment_id
+            "identifierFromPurchaser": identifier_from_purchaser,
+            "network": NETWORK,
+            "sellerVkey": payment_request["data"]["sellerVkey"],
+            "paymentType": "Web3CardanoV1",
+            "blockchainIdentifier": payment_id,
+            "submitResultTime": str(payment_request["data"]["submitResultTime"]),
+            "unlockTime": str(payment_request["data"]["unlockTime"]),
+            "externalDisputeUnlockTime": str(payment_request["data"]["externalDisputeUnlockTime"]),
+            "agentIdentifier": agent_identifier,
+            "inputHash": payment_request["data"]["inputHash"]
         }
     except HTTPException:
         # re-raise HTTP exceptions (our custom errors)
