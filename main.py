@@ -242,11 +242,25 @@ async def start_job(data: StartJobRequest):
         logger.info(f"Starting payment status monitoring for job {job_id}")
         await payment.start_status_monitoring(payment_callback)
 
+        # Get SELLER_VKEY from environment
+        seller_vkey = os.getenv("SELLER_VKEY", "")
+        if not seller_vkey:
+            logger.error("SELLER_VKEY environment variable is missing")
+            raise HTTPException(
+                status_code=500,
+                detail="Server configuration error: SELLER_VKEY not configured. Please contact administrator."
+            )
+        
         # Return the response in the format expected by the /purchase endpoint
+        # Include both the original fields and the extended fields
         return {
+            # Original fields for backward compatibility
+            "job_id": job_id,
+            "payment_id": payment_id,
+            # Extended fields for /purchase endpoint
             "identifierFromPurchaser": identifier_from_purchaser,
             "network": NETWORK,
-            "sellerVkey": payment_request["data"]["sellerVkey"],
+            "sellerVkey": seller_vkey,
             "paymentType": "Web3CardanoV1",
             "blockchainIdentifier": payment_id,
             "submitResultTime": str(payment_request["data"]["submitResultTime"]),
