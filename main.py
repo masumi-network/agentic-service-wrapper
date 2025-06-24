@@ -87,7 +87,7 @@ if not validation_passed:
 # Initialize FastAPI
 app = FastAPI(
     title="API following the Masumi API Standard",
-    description="API for running reverse echo tasks with Masumi payment integration",
+    description="Masumi-compliant agent service with payment integration",
     version="1.0.0"
 )
 
@@ -129,14 +129,14 @@ class ProvideInputRequest(BaseModel):
     job_id: str
 
 # ─────────────────────────────────────────────────────────────────────────────
-#region Reverse Echo Task Execution
+#region Task Execution THIS IS THE MAIN ENTRY POINT
 # ─────────────────────────────────────────────────────────────────────────────
-async def execute_reverse_echo_task(input_data: dict) -> object:
-    """ Execute a reverse echo task """
-    logger.info(f"Starting reverse echo task with input: {input_data}")
+async def execute_agentic_task(input_data: dict) -> object:
+    """ Execute task """
+    logger.info(f"starting task with input: {input_data}")
     service = AgenticService(logger=logger)
     result = await service.execute_task(input_data)
-    logger.info("Reverse echo task completed successfully")
+    logger.info("task completed successfully")
     return result
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -306,7 +306,7 @@ async def start_job(data: StartJobRequest):
 #region 2) Process Payment and Execute AI Task
 # ─────────────────────────────────────────────────────────────────────────────
 async def handle_payment_status(job_id: str, payment_id: str) -> None:
-    """ Executes reverse echo task after payment confirmation """
+    """ Executes task after payment confirmation """
     try:
         logger.info(f"Payment {payment_id} completed for job {job_id}, executing task...")
         
@@ -316,9 +316,9 @@ async def handle_payment_status(job_id: str, payment_id: str) -> None:
         logger.info(f"Input data: {input_data}")
 
         # Execute the AI task
-        result = await execute_reverse_echo_task(input_data)
+        result = await execute_agentic_task(input_data)
         result_dict = result.json_dict  # type: ignore
-        logger.info(f"Reverse echo task completed for job {job_id}")
+        logger.info(f"task completed for job {job_id}")
         
         # Mark payment as completed on Masumi
         # Use a shorter string for the result hash
@@ -435,7 +435,7 @@ async def health():
 #region Main Logic if Called as a Script
 # ─────────────────────────────────────────────────────────────────────────────
 def main():
-    print("Running reverse echo as standalone script is not supported when using payments.")
+    print("Running task as standalone script is not supported when using payments.")
     print("Start the API using `python main.py api` instead.")
 
 if __name__ == "__main__":

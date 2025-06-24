@@ -7,6 +7,8 @@ wheels/
 *.egg-info
 .ropeproject
 logs/
+.pytest_cache/
+.claude/
 
 # Virtual environments
 .venv
