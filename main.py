@@ -410,10 +410,10 @@ async def input_schema():
             {
                 "id": "input_string",
                 "type": "string",
-                "name": "Text to Reverse",
+                "name": "Text to Analyze",
                 "data": {
-                    "description": "The text input that will be reversed",
-                    "placeholder": "Enter text to reverse here"
+                    "description": "The text input that will be analyzed by CrewAI agents",
+                    "placeholder": "Enter text to analyze here"
                 }
             }
         ]
