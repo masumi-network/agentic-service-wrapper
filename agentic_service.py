@@ -31,10 +31,20 @@ class AgenticService:
         if self.logger:
             self.logger.info(f"Processing reverse echo for text: '{text[:50]}{'...' if len(text) > 50 else ''}'")
         
-        # Simple reverse operation
+        # simple reverse operation
         reversed_text = text[::-1]
         
         if self.logger:
             self.logger.info(f"Reverse echo completed: '{reversed_text[:50]}{'...' if len(reversed_text) > 50 else ''}'")
         
-        return ServiceResult(text, reversed_text) 
+        return ServiceResult(text, reversed_text)
+
+def get_agentic_service(logger=None):
+    """
+    Factory function to get the appropriate service for this branch.
+    This enables easy switching between different implementations across branches.
+    
+    Main branch: Simple text reversal service (no dependencies)
+    Other branches: CrewAI, LangChain, n8n implementations
+    """
+    return AgenticService(logger) 

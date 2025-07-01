@@ -17,7 +17,7 @@ Railway templates we provide are pointing to the open-source repositories of Mas
 
 1. **Deploy [Masumi Payment Service](https://github.com/masumi-network/masumi-payment-service)**:  
 
-[![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/masumi-payment-service-official?referralCode=padierfind)
+    [![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/masumi-payment-service-official?referralCode=padierfind)
    - Use the template in an existing or new project (in existing project, "Create" > "Template" > search for "Masumi Payment Service")
    - Provide Blockfrost API key in variables (required to click "deploy")
    - Click on deploy, watch the logs, wait for it (takes 5+ minutes, depending on the load on Railway)
@@ -28,7 +28,7 @@ Railway templates we provide are pointing to the open-source repositories of Mas
 
 2. **Deploy [Agent Service API Wrapper](https://github.com/masumi-network/agentic-service-wrapper)**:  
 
-  [![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/masumi-compliant-service-api-official?referralCode=padierfind)
+    [![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/masumi-compliant-service-api-official?referralCode=padierfind)
    - Make sure your Masumi payment service is up and running
    - Provide `PAYMENT_SERVICE_URL` in variables (format: `https://your-instance-of-masumi.up.railway.app/api/v1`, the main part of the URL can differ, point is - don't forget the `/api/v1` slugs)
    - Wait for deployment to complete

@@ -13,6 +13,7 @@ os.environ["AGENT_IDENTIFIER"] = "test-agent-123"
 os.environ["SELLER_VKEY"] = "test-seller-vkey"
 
 from main import app
+from agentic_service import get_agentic_service, AgenticService, ServiceResult
 
 client = TestClient(app)
 
@@ -68,7 +69,8 @@ class TestStartJobEndpoint:
                 "blockchainIdentifier": "test-blockchain-id",
                 "submitResultTime": "2025-06-17T12:00:00Z",
                 "unlockTime": "2025-06-17T13:00:00Z",
-                "externalDisputeUnlockTime": "2025-06-17T14:00:00Z"
+                "externalDisputeUnlockTime": "2025-06-17T14:00:00Z",
+                "inputHash": "test-input-hash"
             }
         }
         mock_payment_instance.input_hash = "test-input-hash"
@@ -205,7 +207,8 @@ class TestStatusEndpoint:
                 "blockchainIdentifier": "test-blockchain-id",
                 "submitResultTime": "2025-06-17T12:00:00Z",
                 "unlockTime": "2025-06-17T13:00:00Z",
-                "externalDisputeUnlockTime": "2025-06-17T14:00:00Z"
+                "externalDisputeUnlockTime": "2025-06-17T14:00:00Z",
+                "inputHash": "test-input-hash"
             }
         }
         mock_payment_instance.input_hash = "test-input-hash"
@@ -277,6 +280,115 @@ class TestOpenAPISchema:
         # verify input_data is defined as an array of InputDataItem
         input_data_schema = properties["input_data"]
         assert input_data_schema["type"] == "array"
+
+
+class TestAgenticService:
+    """test the agentic service factory and core functionality"""
+    
+    def test_factory_function(self):
+        """test that get_agentic_service returns proper service instance"""
+        service = get_agentic_service()
+        assert isinstance(service, AgenticService)
+        assert hasattr(service, 'execute_task')
+    
+    def test_factory_function_with_logger(self):
+        """test that factory function properly handles logger parameter"""
+        import logging
+        test_logger = logging.getLogger("test")
+        service = get_agentic_service(logger=test_logger)
+        assert service.logger == test_logger
+    
+    @pytest.mark.asyncio
+    async def test_service_execute_task(self):
+        """test that the service properly executes tasks"""
+        service = get_agentic_service()
+        input_data = {"input_string": "hello world"}
+        
+        result = await service.execute_task(input_data)
+        
+        assert isinstance(result, ServiceResult)
+        assert result.original_text == "hello world"
+        assert result.reversed_text == "dlrow olleh"
+        assert result.raw == "dlrow olleh"
+        assert result.json_dict["task"] == "reverse_echo"
+    
+    @pytest.mark.asyncio
+    async def test_service_empty_input(self):
+        """test service with empty input"""
+        service = get_agentic_service()
+        input_data = {"input_string": ""}
+        
+        result = await service.execute_task(input_data)
+        
+        assert result.original_text == ""
+        assert result.reversed_text == ""
+    
+    @pytest.mark.asyncio
+    async def test_service_missing_input_string(self):
+        """test service with missing input_string key"""
+        service = get_agentic_service()
+        input_data = {"other_key": "value"}
+        
+        result = await service.execute_task(input_data)
+        
+        assert result.original_text == ""
+        assert result.reversed_text == ""
+
+
+class TestMasumiCompliance:
+    """verify that main branch maintains masumi network compliance"""
+    
+    def test_all_required_endpoints_exist(self):
+        """verify all MIP-003 required endpoints are present"""
+        # test /start_job
+        response = client.options("/start_job")
+        assert response.status_code in [200, 405]  # endpoint exists
+        
+        # test /status  
+        response = client.options("/status")
+        assert response.status_code in [200, 405]  # endpoint exists
+        
+        # test /availability
+        response = client.get("/availability")
+        assert response.status_code == 200
+        
+        # test /input_schema
+        response = client.get("/input_schema")
+        assert response.status_code == 200
+        
+        # test /health
+        response = client.get("/health")
+        assert response.status_code == 200
+    
+    def test_input_schema_compliance(self):
+        """verify input schema follows masumi standards"""
+        response = client.get("/input_schema")
+        assert response.status_code == 200
+        
+        schema = response.json()
+        assert "input_data" in schema
+        assert isinstance(schema["input_data"], list)
+        assert len(schema["input_data"]) > 0
+        
+        # check first input field has required structure
+        first_input = schema["input_data"][0]
+        assert "id" in first_input
+        assert "type" in first_input
+        assert "name" in first_input
+    
+    def test_start_job_request_format(self):
+        """verify start_job accepts masumi standard request format"""
+        # this test only checks the request format parsing, not the full flow
+        test_data = {
+            "input_data": [
+                {"key": "input_string", "value": "test"}
+            ]
+        }
+        
+        # we expect this to fail due to missing env vars, but it should parse the request
+        response = client.post("/start_job", json=test_data)
+        # should be 500 (config error) not 422 (validation error)
+        assert response.status_code in [400, 500, 502]  # config errors, not validation
 
 
 if __name__ == "__main__":
