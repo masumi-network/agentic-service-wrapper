@@ -54,7 +54,7 @@ class TestHealthEndpoints:
         assert len(data["input_data"]) == 1
         assert data["input_data"][0]["id"] == "input_string"
         assert data["input_data"][0]["type"] == "string"
-        assert data["input_data"][0]["name"] == "Text to Reverse"
+        assert data["input_data"][0]["name"] == "Text to Analyze"
 
 
 class TestStartJobEndpoint:
@@ -353,8 +353,75 @@ class TestAgenticService:
         assert result.raw is not None
 
 
+class TestCrewAIIntegration:
+    """test CrewAI integration functionality in isolation"""
+    
+    @pytest.mark.asyncio
+    async def test_crewai_service_direct(self):
+        """test CrewAI service functionality directly"""
+        if not CrewAIService:
+            pytest.skip("CrewAI not available in this branch")
+            
+        service = CrewAIService()
+        input_data = {"input_string": "test analysis text"}
+        
+        result = await service.execute_task(input_data)
+        
+        # verify CrewAI-specific results
+        assert isinstance(result, ServiceResult)
+        assert result.original_text == "test analysis text"
+        # check that we got some result (might be error without API key)
+        assert result.raw is not None
+        assert result.json_dict["task"] == "crewai_summarization"
+        assert "word_count" in result.json_dict
+        assert "char_count" in result.json_dict
+        assert result.json_dict["word_count"] == 3
+        assert result.json_dict["char_count"] == 18
+    
+    @pytest.mark.asyncio
+    async def test_crewai_with_logger(self):
+        """test CrewAI service with logger"""
+        if not CrewAIService:
+            pytest.skip("CrewAI not available in this branch")
+            
+        import logging
+        test_logger = logging.getLogger("test_crewai")
+        service = CrewAIService(logger=test_logger)
+        
+        assert service.logger == test_logger
+        
+        # test execution with logger
+        result = await service.execute_task({"input_string": "logged test"})
+        assert result.json_dict["task"] == "crewai_summarization"
+    
+    def test_crewai_dependencies_check(self):
+        """test that we can identify missing CrewAI dependencies"""
+        # check if we can import the service class
+        try:
+            from agentic_service import CrewAIService as ImportedCrewAIService
+            service_available = True
+        except ImportError:
+            service_available = False
+            
+        if not service_available:
+            pytest.skip("CrewAI not available in this branch")
+        
+        # this test helps identify configuration issues
+        # if CrewAI is available but dependencies are missing, 
+        # the import in agentic_service.py would have failed
+        
+        assert ImportedCrewAIService is not None
+        
+        # check if service can be instantiated
+        service = ImportedCrewAIService()
+        assert hasattr(service, 'execute_task')
+        
+        # note: for full CrewAI functionality, need to uncomment 
+        # dependencies in requirements.txt and add OPENAI_API_KEY
+
+
 class TestMasumiCompliance:
-    """verify that main branch maintains masumi network compliance"""
+    """verify that branches maintain masumi network compliance"""
     
     def test_all_required_endpoints_exist(self):
         """verify all MIP-003 required endpoints are present"""

@@ -50,79 +50,133 @@ def get_agentic_service(logger=None):
 
 
 # ─────────────────────────────────────────────────────────────────────────────
-# CrewAI Integration Implementation
+# CrewAI Integration Implementation 
 # ─────────────────────────────────────────────────────────────────────────────
+
+import os
+from crewai import LLM
+from crew import MyCrew  # Crew definition in crew.py - customize there!
 
 class CrewAIService:
     """
-    CrewAI-based service implementation (hello-world demonstration)
-    
-    Note: This is a minimal implementation showing CrewAI integration patterns.
-    For full CrewAI functionality, uncomment the imports and implement 
-    actual Agent, Task, and Crew objects.
+    CrewAI service using stock implementation pattern
+    Requires OPENAI_API_KEY environment variable
     """
     
     def __init__(self, logger=None):
         self.logger = logger
-        # for demo purposes, we'll simulate CrewAI without full dependencies
-        # uncomment below when you have openai api key configured:
-        # from crewai import Agent, Task, Crew
-        # self.crew = self._create_crew()
-    
-    def _create_crew(self):
-        """
-        Create a simple CrewAI crew for text processing
         
-        Uncomment this method when you have CrewAI properly configured:
-        """
-        # from crewai import Agent, Task, Crew
-        # 
-        # text_processor = Agent(
-        #     role='Text Processor',
-        #     goal='Process and analyze text input from users',
-        #     backstory='''You are a helpful text processing assistant. 
-        #     Your job is to take text input and provide useful analysis.''',
-        #     verbose=True,
-        #     allow_delegation=False
-        # )
-        # 
-        # return Crew(
-        #     agents=[text_processor],
-        #     tasks=[],  # tasks will be created dynamically
-        #     verbose=True
-        # )
-        pass
+        # check for OpenAI API key
+        api_key = os.getenv("OPENAI_API_KEY")
+        if not api_key:
+            error_msg = "OPENAI_API_KEY environment variable is required for CrewAI functionality"
+            if self.logger:
+                self.logger.error(error_msg)
+            raise ValueError(error_msg)
+        
+        # configure OpenAI model (default to gpt-4.1-nano for cost efficiency)
+        self.model_name = os.getenv("OPENAI_MODEL", "gpt-4.1-nano")
+        self.llm = LLM(
+            model=f"openai/{self.model_name}",
+            temperature=0.7  # balanced creativity
+        )
+        
+        if self.logger:
+            self.logger.info(f"CrewAI service initialized with model: {self.model_name}")
     
     async def execute_task(self, input_data: dict) -> ServiceResult:
         """
-        Execute CrewAI task (demo implementation)
+        Execute CrewAI summarization using stock pattern
         
         Args:
             input_data: Dictionary containing 'input_string' key
             
         Returns:
-            ServiceResult with CrewAI-style processing result
+            ServiceResult with CrewAI summarization
         """
         text = input_data.get("input_string", "")
         
         if self.logger:
-            self.logger.info(f"Processing with CrewAI-style analysis for text: '{text[:50]}{'...' if len(text) > 50 else ''}'")
+            self.logger.info(f"Processing CrewAI summarization for: '{text[:50]}{'...' if len(text) > 50 else ''}'")
         
-        # demo implementation: simulate CrewAI analysis
-        # in real implementation, this would use actual CrewAI agents
-        word_themes = ', '.join(text.split()[:3]) if text.split() else 'none'
-        analyzed_text = f"CrewAI Analysis: Text contains {len(text)} characters and {len(text.split())} words. Key themes: {word_themes}..."
+        if not text.strip():
+            summary = "No text provided for summarization."
+        else:
+            try:
+                # create crew instance from crew.py
+                crew_instance = MyCrew()
+                
+                # configure crew with our custom model
+                crew_obj = crew_instance.crew()
+                crew_obj.manager_llm = self.llm
+                
+                # set LLM for all agents to ensure consistency
+                for agent in crew_obj.agents:
+                    agent.llm = self.llm
+                
+                if self.logger:
+                    self.logger.info(f"Executing CrewAI crew with {self.model_name}...")
+                
+                # execute the crew with inputs
+                result = crew_obj.kickoff(inputs={'text': text})
+                summary = str(result).strip()
+                
+                if self.logger:
+                    self.logger.info("CrewAI summarization completed successfully")
+                    
+            except Exception as e:
+                error_msg = f"CrewAI execution failed: {str(e)}"
+                if self.logger:
+                    self.logger.error(error_msg)
+                summary = f"Error during summarization: {str(e)}"
         
-        if self.logger:
-            self.logger.info(f"CrewAI analysis completed: '{analyzed_text[:50]}{'...' if len(analyzed_text) > 50 else ''}'")
-        
-        # create result with CrewAI-specific metadata
-        result = ServiceResult(text, analyzed_text)
-        result.json_dict = {
+        # create result object
+        result_obj = ServiceResult(text, summary)
+        result_obj.json_dict = {
             "original_text": text,
-            "analyzed_text": analyzed_text,
-            "task": "crewai_analysis",
-            "word_count": len(text.split()),
-            "char_count": len(text)
+            "summary": summary,
+            "task": "crewai_summarization", 
+            "word_count": len(text.split()) if text else 0,
+            "char_count": len(text),
+            "agent_type": "CrewAI"
         }
-        return result 
+        
+        return result_obj
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Command Line Interface for Testing
+# ─────────────────────────────────────────────────────────────────────────────
+
+if __name__ == "__main__":
+    import argparse
+    import asyncio
+    import json
+    
+    parser = argparse.ArgumentParser(description="Test CrewAI service directly")
+    parser.add_argument("--input", required=True, help="Text to process")
+    parser.add_argument("--verbose", "-v", action="store_true", help="Show verbose output")
+    
+    args = parser.parse_args()
+    
+    async def main():
+        if args.verbose:
+            import logging
+            logging.basicConfig(level=logging.INFO)
+            logger = logging.getLogger("crewai_test")
+        else:
+            logger = None
+        
+        service = get_agentic_service(logger=logger)
+        result = await service.execute_task({"input_string": args.input})
+        
+        if args.verbose:
+            print("=== CrewAI Service Test Results ===")
+            print(f"Service Type: {service.__class__.__name__}")
+            print(f"Original Text: {result.original_text}")
+            print(f"Processed Result: {result.raw}")
+            print(f"Full JSON: {json.dumps(result.json_dict, indent=2)}")
+        else:
+            print(result.raw)
+    
+    asyncio.run(main()) 

@@ -5,7 +5,7 @@ import time
 from urllib.parse import urlparse
 from dotenv import load_dotenv
 from fastapi import FastAPI, HTTPException
-from pydantic import BaseModel
+from pydantic import BaseModel, ConfigDict
 from masumi.config import Config
 from masumi.payment import Payment
 from agentic_service import get_agentic_service
@@ -114,16 +114,17 @@ class InputDataItem(BaseModel):
     value: str
 
 class StartJobRequest(BaseModel):
-    input_data: list[InputDataItem]
-    
-    class Config:
-        json_schema_extra = {
+    model_config = ConfigDict(
+        json_schema_extra={
             "example": {
                 "input_data": [
                     {"key": "input_string", "value": "Hello World"}
                 ]
             }
         }
+    )
+    
+    input_data: list[InputDataItem]
 
 class ProvideInputRequest(BaseModel):
     job_id: str

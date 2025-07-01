@@ -1,0 +1,9 @@
+summarization_task:
+  description: >
+    Summarize the following text in 2-3 clear, concise sentences.
+    Focus on the main points and key information.
+    
+    Text to summarize: {text}
+  expected_output: >
+    A 2-3 sentence summary highlighting the main points and key information
+  agent: summarizer

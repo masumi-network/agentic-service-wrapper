@@ -1,13 +1,21 @@
-fastapi>=0.104.0
-uvicorn[standard]>=0.24.0
-pydantic>=2.0.0
+fastapi
+uvicorn[standard]
+pydantic
 python-dotenv
 masumi
 httpx
 requests
 cuid2
-pytest>=7.0.0
-pytest-asyncio>=0.21.0
-# CrewAI dependencies - uncomment when configuring with OpenAI API key
-# crewai>=0.30.0
-# openai>=1.0.0 
+pytest
+pytest-asyncio
+# CrewAI essential dependencies
+crewai
+openai
+# langchain-openai  # using CrewAI's LLM class instead
+# CrewAI implicit dependencies (needed for import)
+chromadb
+json-repair
+appdirs
+blinker
+litellm
+opentelemetry-exporter-otlp-proto-http

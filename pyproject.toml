@@ -19,6 +19,11 @@ dependencies = [
     "cuid2>=2.0.1",
     "pytest>=8.3.5",
     "pytest-asyncio>=1.0.0",
+    "json-repair>=0.47.6",
+    "chromadb>=1.0.13",
+    "appdirs>=1.4.4",
+    "blinker>=1.9.0",
+    "litellm>=1.73.6",
 ]
 
 [project.optional-dependencies]
@@ -29,6 +34,9 @@ dev = [
 
 [tool.setuptools]
 py-modules = ["main", "reverse_echo_service", "logging_config"]
+
+[tool.pytest.ini_options]
+asyncio_default_fixture_loop_scope = "function"
 
 [tool.pyright]
 include = ["*.py", "**/*.py"]
