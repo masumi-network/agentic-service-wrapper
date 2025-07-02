@@ -95,9 +95,17 @@ curl "http://localhost:8000/status?job_id=your-job-id"
 
 [![Deploy on Railway](https://railway.com/button.svg)](https://railway.com/deploy/masumi-compliant-service-api-official?referralCode=padierfind)
 
-- Set `PAYMENT_SERVICE_URL` to your payment service
-- Add `OPENAI_API_KEY` for full functionality
-- Configure other environment variables
+Railway will automatically detect required environment variables from the `Dockerfile`. Configure these in the Variables tab:
+
+**Required:**
+- `OPENAI_API_KEY` - Your OpenAI API key
+- `PAYMENT_SERVICE_URL` - URL from step 1
+- `PAYMENT_API_KEY` - Payment service API key
+- `NETWORK` - Set to `Preprod`
+
+**After agent registration:**
+- `AGENT_IDENTIFIER` - From payment service
+- `SELLER_VKEY` - From payment service
 
 ### 3. Register Agent
 
