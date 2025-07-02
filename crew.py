@@ -6,40 +6,51 @@ DEVELOPERS: This is where you customize your CrewAI crew!
 This file contains the crew configuration separate from the service wrapper.
 You can modify agents, tasks, and crew behavior here without touching
 the Masumi API compliance code in agentic_service.py.
-
-To customize:
-1. Edit config/agents.yaml for agent definitions
-2. Edit config/tasks.yaml for task definitions  
-3. Modify this file for crew logic and flow
 """
 
-import os
-from crewai import Agent, Crew, Process, Task
-from crewai.project import CrewBase, agent, crew, task
+from crewai import Agent, Crew, Task
+from logging_config import setup_logging
 
-@CrewBase
-class MyCrew():
-    """A simple CrewAI setup"""
+class MyCrew:
+    """Simple CrewAI crew using direct instantiation """
+    
+    def __init__(self, verbose=True, logger=None):
+        self.verbose = verbose
+        self.logger = logger or setup_logging()
+        self.crew = self.create_crew()
+        if self.logger:
+            self.logger.info("MyCrew initialized")
 
-    @agent
-    def summarizer(self) -> Agent:
-        return Agent(
-            config=self.agents_config['summarizer'],
-            verbose=True
+    def create_crew(self):
+        if self.logger:
+            self.logger.info("Creating crew with agents")
+        
+        # Define your agents here 
+        summarizer = Agent(
+            role='Text Summarizer',
+            goal='Create clear and concise summaries of any given text',
+            backstory='You\'re an expert text summarizer with the ability to distill complex information into clear, actionable insights. You focus on identifying the most important points while maintaining the original context and meaning.',
+            verbose=self.verbose
         )
 
-    @task
-    def summarization_task(self) -> Task:
-        return Task(
-            config=self.tasks_config['summarization_task']
+        if self.logger:
+            self.logger.info("Created summarizer agent")
+
+        # Define your tasks here 
+        summarization_task = Task(
+            description='Summarize the following text in 2-3 clear, concise sentences. Focus on the main points and key information.\n\nText to summarize: {text}',
+            expected_output='A 2-3 sentence summary highlighting the main points and key information',
+            agent=summarizer
         )
 
-    @crew
-    def crew(self) -> Crew:
-        """Creates the crew with defined agents and tasks"""
-        return Crew(
-            agents=self.agents,
-            tasks=self.tasks,
-            process=Process.sequential,
-            verbose=True
+        # Create crew with agents and tasks 
+        crew = Crew(
+            agents=[summarizer],
+            tasks=[summarization_task],
+            verbose=self.verbose
         )
+        
+        if self.logger:
+            self.logger.info("Crew setup completed")
+            
+        return crew

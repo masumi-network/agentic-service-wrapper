@@ -11,7 +11,7 @@ cp .env.example .env
 
 # Install dependencies
 uv venv && source .venv/bin/activate
-uv pip sync requirements.txt
+uv pip install -r requirements.txt
 
 # Test the service
 uv run python agentic_service.py --input "Hello world" --verbose

@@ -54,12 +54,11 @@ def get_agentic_service(logger=None):
 # ─────────────────────────────────────────────────────────────────────────────
 
 import os
-from crewai import LLM
 from crew import MyCrew  # Crew definition in crew.py - customize there!
 
 class CrewAIService:
     """
-    CrewAI service using stock implementation pattern
+    CrewAI service using simple direct instantiation
     Requires OPENAI_API_KEY environment variable
     """
     
@@ -74,15 +73,8 @@ class CrewAIService:
                 self.logger.error(error_msg)
             raise ValueError(error_msg)
         
-        # configure OpenAI model (default to gpt-4.1-nano for cost efficiency)
-        self.model_name = os.getenv("OPENAI_MODEL", "gpt-4.1-nano")
-        self.llm = LLM(
-            model=f"openai/{self.model_name}",
-            temperature=0.7  # balanced creativity
-        )
-        
         if self.logger:
-            self.logger.info(f"CrewAI service initialized with model: {self.model_name}")
+            self.logger.info("CrewAI service initialized")
     
     async def execute_task(self, input_data: dict) -> ServiceResult:
         """
@@ -103,22 +95,14 @@ class CrewAIService:
             summary = "No text provided for summarization."
         else:
             try:
-                # create crew instance from crew.py
-                crew_instance = MyCrew()
-                
-                # configure crew with our custom model
-                crew_obj = crew_instance.crew()
-                crew_obj.manager_llm = self.llm
-                
-                # set LLM for all agents to ensure consistency
-                for agent in crew_obj.agents:
-                    agent.llm = self.llm
+                # create crew instance from crew.py (simple pattern)
+                crew_instance = MyCrew(logger=self.logger)
                 
                 if self.logger:
-                    self.logger.info(f"Executing CrewAI crew with {self.model_name}...")
+                    self.logger.info("Executing CrewAI crew...")
                 
-                # execute the crew with inputs
-                result = crew_obj.kickoff(inputs={'text': text})
+                # execute the crew with inputs (no manual configuration)
+                result = crew_instance.crew.kickoff(inputs={'text': text})
                 summary = str(result).strip()
                 
                 if self.logger:
