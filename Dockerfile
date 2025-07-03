@@ -8,13 +8,8 @@ WORKDIR /app
 # Copy requirements first for better layer caching
 COPY requirements.txt .
 
-# Install uv for faster dependency management
-RUN pip install uv
-
-# Install dependencies
-RUN uv venv .venv && \
-    . .venv/bin/activate && \
-    uv pip install -r requirements.txt
+# Install dependencies directly with pip (simpler for Docker)
+RUN pip install -r requirements.txt
 
 # Copy application code
 COPY . .
@@ -34,4 +29,4 @@ ENV CREWAI_TELEMETRY_OPT_OUT="true"
 EXPOSE $PORT
 
 # Start command (Railway will override with railway.json if present)
-CMD ["/bin/bash", "-c", "source .venv/bin/activate && uvicorn main:app --host 0.0.0.0 --port $PORT"]
+CMD ["sh", "-c", "uvicorn main:app --host 0.0.0.0 --port $PORT"]
